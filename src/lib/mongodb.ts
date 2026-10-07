@@ -11,7 +11,7 @@ export async function connectDB() {
 
   if (!uri) {
     throw new Error(
-      "Please define the MONGODB_URI environment variable in .env.local",
+      "Please define the MONGODB_URI environment variable (in .env.local locally or in Vercel Project Settings in production).",
     );
   }
 

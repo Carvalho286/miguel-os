@@ -9,7 +9,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Vercel Blob token is missing. Please set BLOB_READ_WRITE_TOKEN in .env.local to upload photos.",
+            "Vercel Blob token is missing. Please set BLOB_READ_WRITE_TOKEN in your environment variables.",
         },
         { status: 500 },
       );
