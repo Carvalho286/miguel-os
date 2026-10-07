@@ -25,13 +25,17 @@ export default function AdminPage() {
   });
   const [photoFiles, setPhotoFiles] = useState<FileList | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch all projects from MongoDB
   useEffect(() => {
     async function loadProjects() {
       try {
         const res = await fetch("/api/projects", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch projects");
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.error || "Failed to fetch projects");
+        }
         const data = await res.json();
         setProjects(data);
       } catch (err) {
@@ -55,6 +59,12 @@ export default function AdminPage() {
   };
 
   const handleSave = async () => {
+    if (!newProject.name.trim()) {
+      alert("Please enter a project name.");
+      return;
+    }
+
+    setIsSaving(true);
     try {
       let uploadedPhotos: string[] = [];
 
@@ -64,7 +74,7 @@ export default function AdminPage() {
         for (const file of Array.from(photoFiles)) {
           formData.append("photos", file);
         }
-        formData.append("projectName", newProject.name);
+        formData.append("projectName", newProject.name.trim());
 
         const uploadRes = await fetch("/api/projects/upload", {
           method: "POST",
@@ -74,14 +84,19 @@ export default function AdminPage() {
         if (uploadRes.ok) {
           uploadedPhotos = await uploadRes.json();
         } else {
-          alert("Error uploading photos");
+          const uploadErr = await uploadRes.json().catch(() => null);
+          alert(uploadErr?.error || "Error uploading photos");
           return;
         }
       }
 
       // Merge existing + new photos
       const finalPhotos = [...(newProject.photos || []), ...uploadedPhotos];
-      const projectToSave = { ...newProject, photos: finalPhotos };
+      const projectToSave = {
+        ...newProject,
+        name: newProject.name.trim(),
+        photos: finalPhotos,
+      };
 
       const method = editingProject ? "PUT" : "POST";
 
@@ -91,17 +106,22 @@ export default function AdminPage() {
         body: JSON.stringify(projectToSave),
       });
 
-      if (!res.ok) throw new Error("Error saving project");
+      const data = await res.json().catch(() => null);
 
-      const updated = await res.json();
-      setProjects(updated);
+      if (!res.ok) {
+        throw new Error(data?.error || "Error saving project");
+      }
+
+      setProjects(data);
       setShowModal(false);
       setNewProject({ name: "", github: "", live: "", photos: [] });
       setEditingProject(null);
       setPhotoFiles(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("An error occurred while saving the project.");
+      alert(err.message || "An error occurred while saving the project.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -113,14 +133,14 @@ export default function AdminPage() {
         `/api/projects?name=${encodeURIComponent(name)}`,
         {
           method: "DELETE",
-        }
+        },
       );
-      if (!res.ok) throw new Error("Error deleting project");
-      const updated = await res.json();
-      setProjects(updated);
-    } catch (err) {
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Error deleting project");
+      setProjects(data);
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to delete project.");
+      alert(err.message || "Failed to delete project.");
     }
   };
 
@@ -346,16 +366,20 @@ export default function AdminPage() {
 
               <div className="flex justify-end gap-3 mt-6">
                 <button
+                  type="button"
+                  disabled={isSaving}
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700"
+                  className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
+                  disabled={isSaving}
                   onClick={handleSave}
-                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700"
+                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Save
+                  {isSaving ? "Saving..." : "Save"}
                 </button>
               </div>
             </motion.div>
