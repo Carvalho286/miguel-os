@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Project from "@/models/Project";
+import defaultProjects from "@/data/projects.json";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,15 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await connectDB();
-    const projects = await Project.find().lean();
+    let projects = await Project.find().lean();
+    if (projects.length === 0 && defaultProjects && defaultProjects.length > 0) {
+      try {
+        await Project.insertMany(defaultProjects);
+        projects = await Project.find().lean();
+      } catch (seedErr) {
+        console.error("Error seeding initial projects:", seedErr);
+      }
+    }
     return NextResponse.json(projects);
   } catch (err: any) {
     console.error("GET /api/projects error:", err);

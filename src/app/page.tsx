@@ -31,6 +31,7 @@ type ProjectWithPos = Project & WindowPos;
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
+  const [isBooting, setIsBooting] = useState(true);
   const [projectsData, setProjectsData] = useState<Project[]>([]);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -86,23 +87,25 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchProjects() {
+      const startTime = Date.now();
       try {
-        const startTime = Date.now();
-
         const res = await fetch("/api/projects", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch projects");
-        const data = await res.json();
-
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setProjectsData(data);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching projects:", err);
+      } finally {
         // Force a minimum 2-second boot screen
         const elapsed = Date.now() - startTime;
         const remaining = 2000 - elapsed;
         if (remaining > 0) {
           await new Promise((resolve) => setTimeout(resolve, remaining));
         }
-
-        setProjectsData(data);
-      } catch (err) {
-        console.error("Error fetching projects:", err);
+        setIsBooting(false);
       }
     }
 
@@ -133,7 +136,7 @@ export default function Home() {
   }, [lightboxIndex, galleryProject]);
 
   // --- Boot Screen ---
-  if (!mounted || projectsData.length === 0) {
+  if (!mounted || isBooting) {
     return (
       <motion.main
         className="h-screen w-screen flex flex-col items-center justify-center bg-gradient-to-b from-black via-gray-900 to-black text-green-400 font-mono select-none"
@@ -336,18 +339,24 @@ export default function Home() {
                               : "grid-cols-3 sm:grid-cols-4"
                           }`}
                         >
-                          {projectsData.map((p, i) => (
-                            <motion.button
-                              key={i}
-                              onDoubleClick={() => setSelectedProject(p)}
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.98 }}
-                              className="flex flex-col items-center text-sm text-gray-300 hover:text-white transition-all duration-150"
-                            >
-                              <div className="text-5xl mb-2">📁</div>
-                              <span className="truncate">{p.name}</span>
-                            </motion.button>
-                          ))}
+                          {projectsData.length === 0 ? (
+                            <p className="text-gray-400 text-sm col-span-full text-center py-8">
+                              No projects found yet.
+                            </p>
+                          ) : (
+                            projectsData.map((p, i) => (
+                              <motion.button
+                                key={i}
+                                onDoubleClick={() => setSelectedProject(p)}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="flex flex-col items-center text-sm text-gray-300 hover:text-white transition-all duration-150"
+                              >
+                                <div className="text-5xl mb-2">📁</div>
+                                <span className="truncate">{p.name}</span>
+                              </motion.button>
+                            ))
+                          )}
                         </div>
                       ) : (
                         <motion.div
